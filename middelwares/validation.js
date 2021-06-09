@@ -2,7 +2,7 @@ const Joi = require("joi");
 //validation registring using JOI
 const userValidation = (req) => {
     const schema = Joi.object({
-        name: Joi.string().min(6).max(255).required(),
+        name: Joi.string().min(4).max(255).required(),
         email: Joi.string().min(8).max(255).email().required(),
         password: Joi.string().min(8).max(1024).required(),
         phoneNumber: Joi.string().min(6).required(),
@@ -18,7 +18,7 @@ const loginValidation = (req) => {
 };
 const updateValidation = (req) => {
     const schema = Joi.object({
-        newName: Joi.string().min(6).max(255).required(),
+        newName: Joi.string().min(4).max(255).required(),
         newEmail: Joi.string().min(8).max(255).email().required(),
         newPhoneNumber: Joi.string().min(6).required(),
     });

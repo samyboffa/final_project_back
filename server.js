@@ -26,7 +26,6 @@ app.use("/", require("./routes/user"));
 app.use("/", require("./routes/Product"));
 app.use("/", require("./routes/topUp"));
 app.use("/", require("./routes/order"));
-app.use("/", require("./routes/offer"));
 
 app.use("/addtopup", addTopUp);
 

@@ -57,24 +57,28 @@ router.post("/login", async (req, res) => {
     //
     //
     //verifying if the user exists (login)
-    const user = await User.findOne({
-        email: req.body.email.toLowerCase(),
-    });
-    if (!user) return res.status(400).send("Email or Password Incorrect");
-    //
-    //
-    //comparing passwords
-    const passwordIsValid = await bcrypt.compare(
-        req.body.password,
-        user.password
-    );
-    if (!passwordIsValid) {
-        return res.status(400).send("Email or Password Incorrect");
+    try {
+        const user = await User.findOne({
+            email: req.body.email.toLowerCase(),
+        });
+        if (!user) return res.status(400).send("Email or Password Incorrect");
+        //
+        //
+        //comparing passwords
+        const passwordIsValid = await bcrypt.compare(
+            req.body.password,
+            user.password
+        );
+        if (!passwordIsValid) {
+            return res.status(400).send("Email or Password Incorrect");
+        }
+        //everything is good so log in
+        //create a token and assign it
+        const token = jwt.sign({ _id: user._id }, process.env.TOKEN);
+        res.status(200).send({ token: token, user: user });
+    } catch (error) {
+        res.status(400).send("Impossible To Login Please Try Again Later");
     }
-    //everything is good so log in
-    //create a token and assign it
-    const token = jwt.sign({ _id: user._id }, process.env.TOKEN);
-    res.status(200).send(token);
 });
 //Get Current User Route
 router.get("/getUser", privateRoute, async (req, res) => {
@@ -89,10 +93,10 @@ router.get("/getUser", privateRoute, async (req, res) => {
 
 // Update User
 router.post("/updateUser", privateRoute, async (req, res) => {
-    const token = req.body.token;
-    const newUser = req.body.newUser;
+    const token = req.headers.authorization;
+    const newUser = req.body;
     const id = jwt.decode(token);
-    const validation = updateValidation(req.body.newUser);
+    const validation = updateValidation(req.body);
     const user = await User.findOne({
         _id: id,
     });
@@ -108,19 +112,27 @@ router.post("/updateUser", privateRoute, async (req, res) => {
     if (validation.error) {
         return res.status(405).send(validation.error.details[0].message);
     }
+    const emailExists = await User.findOne({
+        email: req.body.newEmail.toLowerCase(),
+    });
 
+    if (emailExists && user.email !== newUser.newEmail) {
+        return res.status(400).send("Email Already exists");
+    }
+    console.log("we are pokokokok");
     await User.findByIdAndUpdate(id._id, {
         name: newUser.newName,
         email: newUser.newEmail,
         phoneNumber: newUser.newPhoneNumber,
     })
         .then((data) => res.status(200).send("USERUPDATED"))
-        .catch((err) => res.status(400).send(err));
+        .catch((err) => res.status(400).send("Server Error Try Again Later"));
 });
 
 //modify password
 router.post("/updatePassword", privateRoute, async (req, res) => {
-    const token = req.body.token;
+    console.log(req.body);
+    const token = req.headers.authorization;
     const id = jwt.decode(token);
     const user = await User.findOne({
         _id: id,
@@ -152,12 +164,11 @@ router.post("/updatePassword", privateRoute, async (req, res) => {
     await User.findByIdAndUpdate(id._id, {
         password: hashedPassword,
     })
-        .then((data) => res.status(200).send("PASSWORDUPDATED"))
+        .then(() => res.status(200).send("PASSWORDUPDATED"))
         .catch((err) => res.status(400).send(err));
 });
 
 router.post("/addToCart", privateRoute, async (req, res) => {
-    console.log(req.body);
     const token = req.headers.authorization;
     const newProduct = req.body.newProduct;
     const id = jwt.decode(token);
@@ -168,14 +179,20 @@ router.post("/addToCart", privateRoute, async (req, res) => {
         (element) => element._id === newProduct._id
     );
     if (productAlreadyInCart) {
-        return res.status(201).send("Product Already In Cart");
+        return res.status(401).send("Product Already In Cart");
     }
 
-    let x = [...user.cart, newProduct];
-
-    await User.findByIdAndUpdate(id._id, { cart: x })
-        .then((data) => res.send("Added To Cart"))
-        .catch((err) => console.log(err));
+    await User.findByIdAndUpdate(id._id, {
+        $push: { cart: [newProduct] },
+    })
+        .then(() => res.status(200).send("Added To Cart"))
+        .catch(() =>
+            res
+                .status(400)
+                .send(
+                    "Impossible To Add Product To Cart Please Try Again Later"
+                )
+        );
 });
 
 router.post("/removeFromCart", privateRoute, async (req, res) => {
@@ -184,9 +201,7 @@ router.post("/removeFromCart", privateRoute, async (req, res) => {
     const user = await User.findOne({
         _id: id,
     });
-    let gameToRemove = req.body.gameToRemove;
-    let x = user.cart;
-    let y = x.filter((el) => el._id !== gameToRemove);
+    let y = user.cart.filter((el) => el._id !== req.body.gameToRemove);
 
     await User.findByIdAndUpdate(id._id, { cart: y })
         .then((data) => res.send(data))
@@ -277,35 +292,6 @@ router.post("/clearCart", privateRoute, async (req, res) => {
     await User.findByIdAndUpdate(id._id, { cart: [] })
         .then((data) => res.status(205).send("cart Cleared"))
         .catch((err) => console.log(err));
-});
-
-router.post("/rateSeller", privateRoute, async (req, res) => {
-    const token = req.headers.authorization;
-    const id = jwt.decode(token);
-    console.log(req.body);
-    try {
-        const user = await User.findOne({
-            _id: id,
-        });
-        const seller = await User.updateOne(
-            { _id: req.body.sellerId },
-            {
-                $push: {
-                    rate: [{ note: req.body.note, msg: req.body.msg }],
-                    notifications: [
-                        {
-                            msg: `You Have Been Rated by '${user.name}' : rate : ${req.body.note}/100. Comment : '${req.body.msg}' `,
-                            read: false,
-                            type: "rating",
-                        },
-                    ],
-                },
-            }
-        );
-        res.status(200).send("RatingDone");
-    } catch (error) {
-        res.status(400).send("Rating Eroor");
-    }
 });
 
 module.exports = router;

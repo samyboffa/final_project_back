@@ -16,6 +16,7 @@ router.post("/newOrder", privateRoute, async (req, res) => {
     //return console.log(order);
     try {
         const savedOrder = await order.save();
+        await User.findByIdAndUpdate(req.body.clientId, { cart: [] });
         res.status(200).send("OrderSaved");
     } catch (error) {
         console.log(error);
@@ -43,21 +44,53 @@ router.get("/getAllOrders", adminRoute, async (req, res) => {
 });
 
 router.post("/changeStatusOrders", adminRoute, async (req, res) => {
-    try {
-        const result = await Order.findOneAndUpdate(
-            { orderNumber: req.body.orderNumber },
-            { status: req.body.operation }
-        );
-        console.log(result.clientId);
-        const user = await User.findOneAndUpdate(
-            { _id: result.clientId },
-            { $push: { notifications: [{ msg: req.body.msg, read: false }] } }
-        );
-        console.log("useruser");
-        console.log(user);
-        res.status(200).send("Order Updated");
-    } catch (error) {
-        res.status(400).send("impossible To Update Orders");
+    if (req.body.operation === "Complete") {
+        const order = await Order.findOne({
+            orderNumber: req.body.orderNumber,
+        });
+        let products = order.products;
+        let keys = Object.values(req.body.keys);
+        for (let i = 0; i < products.length; i++) {
+            products[i] = { ...products[i], key: keys[i] };
+        }
+        try {
+            await Order.updateOne(
+                { orderNumber: req.body.orderNumber },
+                { $set: { products: products, status: "Complete" } }
+            );
+            await User.updateOne(
+                { _id: order.clientId },
+                {
+                    $push: {
+                        notifications: [{ msg: req.body.msg, read: false }],
+                    },
+                }
+            );
+            return res.status(200).send("Order Complete");
+        } catch (error) {
+            return res.status(400).send("Server Error");
+        }
+    }
+    if (req.body.operation === "Preparing") {
+        try {
+            const result = await Order.findOneAndUpdate(
+                { orderNumber: req.body.orderNumber },
+                { status: "Preparing" }
+            );
+
+            await User.findOneAndUpdate(
+                { _id: result.clientId },
+                {
+                    $push: {
+                        notifications: [{ msg: req.body.msg, read: false }],
+                    },
+                }
+            );
+
+            res.status(200).send("Order Being Prepared");
+        } catch (error) {
+            res.status(400).send("impossible To Update Orders");
+        }
     }
 });
 

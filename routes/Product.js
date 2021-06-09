@@ -15,11 +15,13 @@ router.get("/getGames", async (req, res) => {
         .catch((err) => console.log(err));
 });
 
-router.get("/getProductById", async (req, res) => {
+router.get("/getProductById/:id", async (req, res) => {
     //must find one by id
-    Product.findById(req.headers.id)
-        .then((data) => res.send(data))
-        .catch((err) => console.log(err));
+    Product.findById(req.params.id)
+        .then((data) => res.status(200).send(data))
+        .catch((err) =>
+            res.status(400).send("server Error Please Try Again Later")
+        );
 });
 
 router.get("/searchProduct", async (req, res) => {
@@ -57,21 +59,19 @@ router.post("/addProduct", adminRoute, async (req, res) => {
     }
 });
 router.post("/updateProduct", adminRoute, async (req, res) => {
-    const updatedProduct = {
-        name: req.body.name,
-        type: req.body.type,
-        region: req.body.region,
-        platform: req.body.platform,
-        store: req.body.store,
-        value: req.body.value,
-        currency: req.body.currency,
-        originalPrice: req.body.originalPrice,
-        currentPrice: req.body.currentPrice,
-        description: req.body.description,
-        img: req.body.img,
-    };
+    console.log(req.body);
 
-    await Product.findOneAndReplace({ _id: req.body.id }, updatedProduct)
+    await Product.findOneAndUpdate(
+        { _id: req.body.id },
+        {
+            name: req.body.newName,
+            region: req.body.newRegion,
+            platform: req.body.newPlatform,
+            originalPrice: req.body.newOriginalPrice,
+            currentPrice: req.body.newCurrentPrice,
+            img: req.body.newImg,
+        }
+    )
         .then(() => res.status(200).send("productUpadeted"))
         .catch((err) => console.log(err));
 });

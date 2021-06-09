@@ -37,10 +37,6 @@ const userSchema = new mongoose.Schema({
         type: Array,
         default: [],
     },
-    rate: {
-        type: Array,
-        default: [],
-    },
     notifications: {
         type: Array,
         default: [],

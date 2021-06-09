@@ -11,6 +11,6 @@ module.exports = function privateRoute(req, res, next) {
         req.user = verified;
         next();
     } catch (error) {
-        res.status(401).send("Invalid Token");
+        res.status(401).send("Please Login To Proceed");
     }
 };
